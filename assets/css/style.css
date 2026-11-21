@@ -1,0 +1,789 @@
+/* =====================================================================
+   AppointEase Clinic - Apple Human Interface Design System (Bootstrap 5)
+   =====================================================================
+   WWDC Principles Applied (/apple-design):
+   1. System Typography (§15): Native platform font stack (-apple-system /
+      SF Pro), optical sizing, negative tracking on display titles
+      (-0.024em), positive tracking on small labels (+0.012em), tabular
+      numbers on metrics & time slots.
+   2. Materials & Depth (§12): Translucent top toolbar (backdrop-filter:
+      blur(24px) saturate(180%)) over #F5F5F7 daylight canvas, inset
+      specular highlight, modal sheet materialize animation.
+   3. Response & Critically Damped Springs (§1, §4): Instant pointer-down
+      scale(0.97) feedback; critically damped settling curve (no bounce).
+   4. Accessibility (§14): Full support for prefers-reduced-motion,
+      prefers-reduced-transparency, and prefers-contrast: more.
+   ===================================================================== */
+
+:root {
+    /* Apple Health Emerald Green Palette */
+    --brand-green:        #16a34a;
+    --brand-green-hover:  #15803d;
+    --brand-green-active: #166534;
+    --brand-green-soft:   #dcfce7;
+    --brand-green-subtle: #f0fdf4;
+    --brand-rgb:          22, 163, 74;
+
+    /* Apple System Font Stack (ships optical sizing & tracking tables) */
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --font-text:    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+
+    /* Apple System Surfaces */
+    --apple-canvas:       #f5f5f7;
+    --apple-grouped-bg:   #ffffff;
+    --apple-fill-tertiary: rgba(118, 118, 128, 0.12);
+    --apple-separator:    rgba(60, 60, 67, 0.1);
+    --apple-ink:          #1d1d1f;
+    --apple-secondary:    #6e6e73;
+
+    /* Override Bootstrap 5 Tokens */
+    --bs-primary:            #16a34a;
+    --bs-primary-rgb:        22, 163, 74;
+    --bs-link-color:         #15803d;
+    --bs-link-hover-color:   #166534;
+    --bs-border-radius:      0.75rem;
+    --bs-border-radius-lg:   1.125rem;
+    --bs-body-bg:            #f5f5f7;
+    --bs-body-color:         #1d1d1f;
+
+    /* Critically damped spring curve (damping 1.0, response ~0.35s) */
+    --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- 1. Skip Link & Keyboard Focus Rings ---------- */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 1rem;
+    z-index: 2000;
+    background: var(--brand-green-active);
+    color: #fff;
+    padding: 0.55rem 1rem;
+    border-radius: 0.65rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    transition: top 150ms ease;
+}
+.skip-link:focus {
+    top: 0.75rem;
+    color: #fff;
+    outline: 3px solid #86efac;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(22, 163, 74, 0.5) !important;
+    outline-offset: 2px;
+}
+
+/* ---------- 2. Typography (Optical sizing, tracking, leading) ---------- */
+body {
+    font-family: var(--font-text);
+    font-optical-sizing: auto;
+    font-size: 1rem;
+    line-height: 1.5;
+    letter-spacing: -0.008em;
+    background-color: var(--apple-canvas);
+    color: var(--apple-ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Display headings: tighter leading & negative tracking as size grows */
+h1, .h1, h2, .h2, h3, .h3, .apple-large-title, .apple-metric {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    font-weight: 700;
+    color: var(--apple-ink);
+    text-wrap: balance;
+}
+
+.apple-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--apple-secondary);
+    margin-bottom: 0.15rem;
+}
+
+.apple-large-title {
+    font-size: clamp(1.65rem, 2.6vw, 2.15rem);
+    letter-spacing: -0.026em;
+    line-height: 1.1;
+    font-weight: 700;
+}
+
+.apple-metric {
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Small labels: slightly positive tracking for legibility */
+small, .small, .badge, .table thead th {
+    letter-spacing: 0.01em;
+}
+
+main { flex: 1; }
+
+/* ---------- 3. App Shell: Sidebar Source List + Translucent Toolbar (§12) ---------- */
+.app-shell {
+    display: flex;
+    flex: 1;
+    min-height: 100vh;
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;               /* lets wide tables scroll instead of stretching */
+    display: flex;
+    flex-direction: column;
+}
+
+.app-content {
+    flex: 1;
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1.75rem 1.5rem 2rem;
+}
+.app-content:focus { outline: none; }
+
+@media (max-width: 575.98px) {
+    .app-content { padding: 1.25rem 1rem 1.5rem; }
+}
+
+/* Sidebar: heavier material = structural region (§12) */
+.sidebar { --bs-offcanvas-width: 280px; }
+
+.sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0.25rem 0.25rem 0.5rem;
+}
+
+@media (min-width: 992px) {
+    .sidebar {
+        position: sticky;
+        top: 0;
+        align-self: flex-start;
+        flex: 0 0 260px;
+        width: 260px;
+        height: 100vh;
+    }
+    .sidebar .offcanvas-body {
+        width: 100%;
+        height: 100%;
+    }
+    .sidebar-inner {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        padding: 1.1rem 0.85rem 0.85rem;
+        background: rgba(236, 238, 240, 0.72);
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+        border-right: 1px solid rgba(0, 0, 0, 0.07);
+    }
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.25rem 0.5rem 1.1rem;
+    color: var(--apple-ink);
+    text-decoration: none;
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+}
+
+/* macOS sidebar section headers: small, bold, secondary gray */
+.side-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #86868b;
+    padding: 0 0.6rem;
+    margin-bottom: 0.3rem;
+}
+
+.side-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 36px;
+    padding: 0.42rem 0.65rem;
+    margin-bottom: 2px;
+    border-radius: 0.55rem;
+    color: var(--apple-ink);
+    font-size: 0.92rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 160ms var(--ease-spring), color 160ms var(--ease-spring), transform 100ms ease-out;
+}
+.side-link i {
+    width: 1.1rem;
+    text-align: center;
+    color: var(--brand-green);
+    font-size: 1rem;
+}
+.side-link:hover { background-color: rgba(0, 0, 0, 0.05); color: var(--apple-ink); }
+.side-link:active { transform: scale(0.98); }          /* respond on press (§1) */
+
+/* Selected row: accent fill + white text, like a focused macOS window */
+.side-link.active {
+    background-color: var(--brand-green);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.3);
+}
+.side-link.active i { color: #fff; }
+
+.sidebar-account { margin-top: auto; }
+
+.account-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 0.6rem;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--apple-ink);
+    transition: background-color 160ms ease, transform 100ms ease-out;
+}
+.account-btn:hover { background: #fff; }
+.account-btn:active { transform: scale(0.98); }
+
+/* Toolbar: light translucent layer, content scrolls underneath (§12) */
+.app-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 56px;
+    padding: 0.5rem 1.5rem;
+    background: rgba(245, 245, 247, 0.72);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.toolbar-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: -0.01em;
+}
+
+.toolbar-date {
+    font-size: 0.8rem;
+    color: var(--apple-secondary);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: var(--apple-fill-tertiary);
+}
+
+.toolbar-icon-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 0.65rem;
+    font-size: 1.15rem;
+    color: var(--apple-ink);
+}
+.toolbar-icon-btn:hover { background: var(--apple-fill-tertiary); }
+
+.app-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    font-size: 0.8rem;
+    color: var(--apple-secondary);
+    border-top: 1px solid var(--apple-separator);
+}
+
+/* Shared brand pieces (login + sidebar) */
+.brand-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.brand-badge-lg {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    font-size: 1.55rem;
+}
+
+/* Popover anchored to its trigger (§7) */
+.apple-dropdown {
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+    transform-origin: bottom center;
+}
+
+/* ---------- 4. Platter Cards, Grouped Lists & Surfaces ---------- */
+.card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 1.125rem;
+    background: var(--apple-grouped-bg);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.card-header {
+    background: transparent !important;
+    border-bottom: 1px solid var(--apple-separator);
+    padding: 0.95rem 1.25rem;
+    font-weight: 600;
+}
+
+.card-footer {
+    background: rgba(245, 245, 247, 0.6) !important;
+    border-top: 1px solid var(--apple-separator);
+    border-bottom-left-radius: 1.125rem !important;
+    border-bottom-right-radius: 1.125rem !important;
+    padding: 0.7rem 1.25rem;
+}
+
+/* Apple Health Summary Platters */
+.stat-card {
+    border-radius: 1.125rem;
+    transition: transform 240ms var(--ease-spring), box-shadow 240ms var(--ease-spring);
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+.stat-card .stat-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+.stat-card .stat-chevron {
+    transition: transform 200ms var(--ease-spring);
+}
+.stat-card:hover .stat-chevron {
+    transform: translateX(2px);
+}
+
+.stat-emerald .stat-icon { background: #dcfce7; color: #15803d; }
+.stat-amber   .stat-icon { background: #fef3c7; color: #b45309; }
+.stat-teal    .stat-icon { background: #ccfbf1; color: #0f766e; }
+.stat-slate   .stat-icon { background: #e2e8f0; color: #475569; }
+
+/* iOS Settings-style Grouped Action List */
+.apple-action-list {
+    display: flex;
+    flex-direction: column;
+    border-radius: 0.9rem;
+    background: #f8f9fa;
+    border: 1px solid var(--apple-separator);
+    overflow: hidden;
+}
+
+.apple-action-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    text-decoration: none;
+    color: inherit;
+    background: #ffffff;
+    border-bottom: 1px solid var(--apple-separator);
+    transition: background-color 140ms ease, transform 100ms ease-out;
+}
+.apple-action-row:last-child {
+    border-bottom: 0;
+}
+.apple-action-row:hover {
+    background-color: var(--brand-green-subtle);
+}
+.apple-action-row:active {
+    transform: scale(0.99);
+    background-color: var(--brand-green-soft);
+}
+
+.quick-link-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--brand-green-soft);
+    color: var(--brand-green-active);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.occupancy-box {
+    background: var(--brand-green-subtle);
+    border: 1px solid #bbf7d0;
+}
+
+.avatar-chip {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--brand-green-soft);
+    color: var(--brand-green-active);
+    font-weight: 600;
+    font-size: 0.76rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.time-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 0.5rem;
+    background: rgba(118, 118, 128, 0.1);
+    color: var(--apple-ink);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.booking-summary {
+    background: var(--brand-green-subtle);
+    border: 1px solid #bbf7d0;
+}
+
+.empty-state-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--brand-green-subtle);
+    color: var(--brand-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+/* Modal materialize transition (§12: scale + opacity on enter) */
+.modal.fade .modal-dialog {
+    transform: scale(0.95);
+    transition: transform 220ms var(--ease-spring);
+}
+.modal.show .modal-dialog {
+    transform: scale(1);
+}
+.modal-content {
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.confirm-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--brand-green-subtle);
+    color: var(--brand-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+}
+.confirm-icon.confirm-danger {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+/* ---------- 5. Semantic Status Pills (4.5:1+ contrast + icon) ---------- */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.32em 0.7em;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.status-pending   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.status-confirmed { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.status-completed { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.status-cancelled { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+.status-noshow    { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+
+/* ---------- 6. Buttons & Instant Pointer-Down Response (§1) ---------- */
+.btn, a, select, label.slot {
+    cursor: pointer;
+}
+
+.btn {
+    border-radius: 0.65rem;
+    font-weight: 500;
+    transition: transform 100ms ease-out, background-color 180ms var(--ease-spring),
+                border-color 180ms var(--ease-spring), box-shadow 180ms var(--ease-spring);
+}
+
+/* Respond on pointer-down, not release */
+.btn:active,
+.stat-card:active,
+.slot-available:active {
+    transform: scale(0.97) !important;
+}
+
+.btn-primary {
+    background-color: var(--brand-green);
+    border-color: var(--brand-green);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(22, 163, 74, 0.22);
+}
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--brand-green-hover);
+    border-color: var(--brand-green-hover);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
+}
+.btn-primary:active {
+    background-color: var(--brand-green-active) !important;
+    border-color: var(--brand-green-active) !important;
+}
+
+.btn-outline-primary {
+    color: var(--brand-green-hover);
+    border-color: rgba(22, 163, 74, 0.4);
+    background-color: #ffffff;
+}
+.btn-outline-primary:hover, .btn-outline-primary:focus {
+    background-color: var(--brand-green);
+    border-color: var(--brand-green);
+    color: #fff;
+}
+
+/* Form controls */
+.form-control, .form-select, .input-group-text {
+    border-radius: 0.65rem;
+    border-color: rgba(60, 60, 67, 0.18);
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+.input-group-text {
+    background-color: #f8f9fa;
+    color: var(--apple-secondary);
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 0.22rem rgba(22, 163, 74, 0.18);
+}
+
+/* ---------- 7. Calm Daylight Login Sheet ---------- */
+.login-page {
+    background-color: var(--apple-canvas);
+    background-image:
+        radial-gradient(at 25% 15%, rgba(22, 163, 74, 0.12) 0px, transparent 50%),
+        radial-gradient(at 75% 85%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+    justify-content: center;
+    align-items: center;
+}
+
+.login-card {
+    max-width: 400px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 1.35rem;
+    background: rgba(255, 255, 255, 0.84);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow:
+        0 20px 44px rgba(0, 0, 0, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* ---------- 8. Time Slot Grid ---------- */
+.slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.85rem;
+}
+.slot {
+    min-height: 78px;
+    border-radius: 0.85rem;
+    padding: 0.85rem 0.65rem;
+    text-align: center;
+    border: 1px solid transparent;
+    font-size: 1.02rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: transform 100ms ease-out, background-color 180ms var(--ease-spring),
+                border-color 180ms var(--ease-spring), box-shadow 180ms var(--ease-spring);
+}
+.slot small { display: block; font-weight: 500; font-size: 0.76rem; margin-top: 4px; }
+
+.slot-available {
+    background: var(--brand-green-subtle);
+    color: var(--brand-green-active);
+    border-color: #bbf7d0;
+}
+.slot-booked {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+.slot-past {
+    background: #f1f5f9;
+    color: #64748b;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+a.slot-available { text-decoration: none; }
+a.slot-available:hover {
+    background: var(--brand-green-soft);
+    border-color: #86efac;
+}
+
+/* Radio-button slots on the booking form */
+.slot-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.slot-radio + label { cursor: pointer; width: 100%; }
+.slot-radio:focus-visible + label {
+    outline: 3px solid var(--brand-green);
+    outline-offset: 2px;
+}
+.slot-radio:checked + label {
+    background: var(--brand-green);
+    color: #fff;
+    border-color: var(--brand-green-active);
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.26);
+}
+.slot-radio:disabled + label { cursor: not-allowed; }
+
+/* ---------- 9. Hairline Grouped Tables ---------- */
+.table thead th {
+    white-space: nowrap;
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--apple-secondary);
+    background-color: rgba(245, 245, 247, 0.7);
+    border-bottom: 1px solid var(--apple-separator);
+    padding: 0.75rem 1rem;
+}
+
+.table tbody td {
+    padding: 0.8rem 1rem;
+    border-bottom-color: var(--apple-separator);
+}
+
+.table-hover > tbody > tr:hover > * {
+    --bs-table-bg-state: var(--brand-green-subtle);
+}
+
+/* ---------- 10. Status Timeline ---------- */
+.timeline { list-style: none; padding-left: 1rem; border-left: 2px solid #bbf7d0; }
+.timeline li { position: relative; margin-bottom: 1rem; padding-left: 0.75rem; }
+.timeline li::before {
+    content: "";
+    position: absolute;
+    left: -1.4rem;
+    top: 0.35rem;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--brand-green);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #bbf7d0;
+}
+
+/* ---------- 11. Mobile Touch Targets (44x44px min) ---------- */
+@media (max-width: 767.98px) {
+    .btn-sm {
+        min-height: 40px;
+        min-width: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .form-control, .form-select, .btn {
+        min-height: 44px;
+    }
+}
+
+/* ---------- 12. Accessibility: Reduced Motion & Transparency (§14) ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 120ms !important;
+        animation-duration: 120ms !important;
+    }
+    .stat-card:hover,
+    .btn:active,
+        .stat-card:active,
+    .apple-action-row:active,
+    .slot-available:active,
+    .side-link:active,
+    .account-btn:active,
+    .modal.fade .modal-dialog {
+        transform: none !important;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .sidebar-inner,
+    .app-toolbar,
+    .login-card,
+    .apple-dropdown,
+    .modal-content,
+    .card {
+        background: #ffffff !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}
+
+@media (prefers-contrast: more) {
+    .card, .slot, .form-control, .form-select, .status-pill, .apple-action-list {
+        border-color: #1d1d1f !important;
+    }
+}
+
+/* ---------- 13. Print (history report) ---------- */
+@media print {
+    .sidebar, .app-toolbar, .app-footer, .no-print, .btn, .skip-link { display: none !important; }
+    body { background: #fff; }
+    .card { box-shadow: none !important; border: 1px solid #ddd; }
+}
