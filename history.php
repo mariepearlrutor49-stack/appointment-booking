@@ -5,36 +5,51 @@
  */
 require_once 'includes/auth.php';
 
+$historyStatuses = ['Completed', 'Cancelled', 'No-show'];
+
 $filters = [
     'customer_id' => (int) ($_GET['customer_id'] ?? 0),
-    'from'        => (string) ($_GET['from'] ?? ''),
-    'to'          => (string) ($_GET['to'] ?? ''),
+    'q'           => trim((string) ($_GET['q'] ?? '')),
+    'date'        => (string) ($_GET['date'] ?? ''),
     'status'      => (string) ($_GET['status'] ?? ''),
 ];
 
-// "Past" = any appointment before now (earlier date, or today with an earlier time)
-$where  = ["(a.appointment_date < CURDATE() OR (a.appointment_date = CURDATE() AND a.appointment_time < CURTIME()))"];
+// If arriving via ?customer_id=..., pre-fill the search box with that patient's name
+$selectedCustomer = null;
+if ($filters['customer_id'] > 0) {
+    $stmt = $pdo->prepare('SELECT id, full_name FROM customers WHERE id = ?');
+    $stmt->execute([$filters['customer_id']]);
+    $selectedCustomer = $stmt->fetch() ?: null;
+    if ($selectedCustomer && $filters['q'] === '') {
+        $filters['q'] = $selectedCustomer['full_name'];
+    }
+}
+
+// History shows Completed, Cancelled, and No-show appointments only
+$where  = ["a.status IN ('Completed', 'Cancelled', 'No-show')"];
 $params = [];
 
-if ($filters['customer_id'] > 0) {
+if ($filters['q'] !== '') {
+    $where[]  = '(c.full_name LIKE ? OR c.contact_number LIKE ?)';
+    $like     = '%' . $filters['q'] . '%';
+    $params[] = $like;
+    $params[] = $like;
+} elseif ($filters['customer_id'] > 0) {
     $where[]  = 'a.customer_id = ?';
     $params[] = $filters['customer_id'];
 }
-if (is_valid_date($filters['from'])) {
-    $where[]  = 'a.appointment_date >= ?';
-    $params[] = $filters['from'];
+if (is_valid_date($filters['date'])) {
+    $where[]  = 'a.appointment_date = ?';
+    $params[] = $filters['date'];
 }
-if (is_valid_date($filters['to'])) {
-    $where[]  = 'a.appointment_date <= ?';
-    $params[] = $filters['to'];
-}
-if (in_array($filters['status'], STATUSES, true)) {
+if (in_array($filters['status'], $historyStatuses, true)) {
     $where[]  = 'a.status = ?';
     $params[] = $filters['status'];
 }
 
 $stmt = $pdo->prepare(
-    'SELECT a.*, c.full_name, c.contact_number, s.name AS service_name, s.price
+    'SELECT a.*, c.full_name, c.contact_number, c.notes AS customer_notes,
+            s.name AS service_name, s.price
      FROM appointments a
      JOIN customers c ON c.id = a.customer_id
      JOIN services  s ON s.id = a.service_id
@@ -44,23 +59,15 @@ $stmt = $pdo->prepare(
 $stmt->execute($params);
 $history = $stmt->fetchAll();
 
-// Small summary per status for the filtered result
-$summary = array_fill_keys(STATUSES, 0);
+// Small summary per status for the filtered result (Completed, Cancelled, No-show only)
+$summary = array_fill_keys($historyStatuses, 0);
 $revenue = 0;
 foreach ($history as $h) {
-    $summary[$h['status']]++;
+    if (isset($summary[$h['status']])) {
+        $summary[$h['status']]++;
+    }
     if ($h['status'] === 'Completed') {
         $revenue += $h['price'];
-    }
-}
-
-$customers = $pdo->query('SELECT id, full_name FROM customers ORDER BY full_name')->fetchAll();
-
-// Selected customer's details (per-customer view)
-$selectedCustomer = null;
-foreach ($customers as $c) {
-    if ((int) $c['id'] === $filters['customer_id']) {
-        $selectedCustomer = $c;
     }
 }
 
@@ -79,28 +86,24 @@ require 'includes/header.php';
 <div class="card shadow-sm mb-4 no-print">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label for="histSearch" class="form-label small fw-semibold mb-1">Search Patient</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                    <input type="search" id="histSearch" name="q" class="form-control"
+                           value="<?= e($filters['q']) ?>" placeholder="Search patient name or contact..."
+                           onchange="this.form.submit()">
+                </div>
+            </div>
             <div class="col-md-3">
-                <label for="histCustomer" class="form-label small fw-semibold mb-1">Patient</label>
-                <select id="histCustomer" name="customer_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">All patients</option>
-                    <?php foreach ($customers as $c): ?>
-                        <option value="<?= $c['id'] ?>" <?= $filters['customer_id'] === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['full_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-6 col-md-2">
-                <label for="histFrom" class="form-label small fw-semibold mb-1">From Date</label>
-                <input type="date" id="histFrom" name="from" class="form-control" value="<?= e($filters['from']) ?>" onchange="this.form.submit()">
-            </div>
-            <div class="col-6 col-md-2">
-                <label for="histTo" class="form-label small fw-semibold mb-1">To Date</label>
-                <input type="date" id="histTo" name="to" class="form-control" value="<?= e($filters['to']) ?>" onchange="this.form.submit()">
+                <label for="histDate" class="form-label small fw-semibold mb-1">Select a Date</label>
+                <input type="date" id="histDate" name="date" class="form-control" value="<?= e($filters['date']) ?>" onchange="this.form.submit()">
             </div>
             <div class="col-md-3">
                 <label for="histStatus" class="form-label small fw-semibold mb-1">Status</label>
                 <select id="histStatus" name="status" class="form-select" onchange="this.form.submit()">
-                    <option value="">All</option>
-                    <?php foreach (STATUSES as $s): ?>
+                    <option value="">All (Completed, Cancelled, No-show)</option>
+                    <?php foreach ($historyStatuses as $s): ?>
                         <option <?= $filters['status'] === $s ? 'selected' : '' ?>><?= $s ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -140,9 +143,22 @@ require 'includes/header.php';
                     </td>
                 </tr>
             <?php endif; ?>
-            <?php foreach ($history as $h): ?>
+            <?php foreach ($history as $i => $h):
+                $noteText = trim((string) ($h['notes'] ?? ''));
+                if ($noteText === '') {
+                    $noteText = trim((string) ($h['customer_notes'] ?? ''));
+                }
+                if ($noteText === '') {
+                    $defaultNotes = [
+                        'Completed' => 'Consultation & ' . strtolower($h['service_name']) . ' completed.',
+                        'Cancelled' => 'Appointment cancelled.',
+                        'No-show'   => 'Patient did not attend scheduled slot.',
+                    ];
+                    $noteText = $defaultNotes[$h['status']] ?? '—';
+                }
+            ?>
                 <tr>
-                    <td class="text-muted fw-semibold">#<?= $h['id'] ?></td>
+                    <td class="text-muted fw-semibold">#<?= $i + 1 ?></td>
                     <td class="text-nowrap fw-semibold"><?= format_date($h['appointment_date']) ?></td>
                     <td class="text-nowrap"><span class="time-chip"><?= format_time($h['appointment_time']) ?></span></td>
                     <td>
@@ -157,7 +173,7 @@ require 'includes/header.php';
                             <?= status_badge($h['status']) ?>
                         </a>
                     </td>
-                    <td class="small text-muted"><?= e($h['notes'] ?? '') ?></td>
+                    <td class="small text-muted"><?= e($noteText) ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>

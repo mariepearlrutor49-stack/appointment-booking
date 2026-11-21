@@ -12,8 +12,8 @@ $filters = [
     'status' => (string) ($_GET['status'] ?? ''),
 ];
 
-// ---- Build the query step by step (only add conditions that are used) ----
-$where  = [];
+// ---- Build the query step by step (only show active patients in Manage Appointments) ----
+$where  = ['c.is_active = 1'];
 $params = [];
 
 if ($filters['q'] !== '') {
@@ -91,25 +91,27 @@ require 'includes/header.php';
                 <label for="filterQ" class="form-label small fw-semibold mb-1">Patient Name / Contact</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-                    <input type="search" id="filterQ" name="q" class="form-control" value="<?= e($filters['q']) ?>" placeholder="Search patient...">
+                    <input type="search" id="filterQ" name="q" class="form-control"
+                           value="<?= e($filters['q']) ?>" placeholder="Search patient..."
+                           onchange="this.form.submit()">
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <label for="filterDate" class="form-label small fw-semibold mb-1">Date</label>
-                <input type="date" id="filterDate" name="date" class="form-control" value="<?= e($filters['date']) ?>">
+                <input type="date" id="filterDate" name="date" class="form-control"
+                       value="<?= e($filters['date']) ?>" onchange="this.form.submit()">
             </div>
-            <div class="col-6 col-md-2">
+            <div class="col-6 col-md-3">
                 <label for="filterStatus" class="form-label small fw-semibold mb-1">Status</label>
-                <select id="filterStatus" name="status" class="form-select">
+                <select id="filterStatus" name="status" class="form-select" onchange="this.form.submit()">
                     <option value="">All</option>
                     <?php foreach (STATUSES as $s): ?>
                         <option <?= $filters['status'] === $s ? 'selected' : '' ?>><?= $s ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-outline-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
-                <a href="appointments.php" class="btn btn-outline-secondary">Reset</a>
+            <div class="col-md-2 d-flex">
+                <a href="appointments.php" class="btn btn-outline-secondary w-100">Reset</a>
             </div>
         </form>
     </div>
@@ -137,9 +139,9 @@ require 'includes/header.php';
                 </tr>
             <?php endif; ?>
 
-            <?php foreach ($appointments as $a): ?>
+            <?php foreach ($appointments as $i => $a): ?>
                 <tr>
-                    <td class="text-muted fw-semibold">#<?= $a['id'] ?></td>
+                    <td class="text-muted fw-semibold">#<?= $i + 1 ?></td>
                     <td class="text-nowrap">
                         <div class="fw-semibold"><?= format_date($a['appointment_date']) ?></div>
                         <small class="text-muted"><i class="bi bi-clock" aria-hidden="true"></i> <?= format_time($a['appointment_time']) ?></small>
@@ -181,16 +183,6 @@ require 'includes/header.php';
                                title="Edit appointment" aria-label="Edit appointment #<?= $a['id'] ?>">
                                 <i class="bi bi-pencil" aria-hidden="true"></i>
                             </a>
-                            <form method="post" action="appointment_delete.php" class="d-inline"
-                                  data-confirm="Delete appointment #<?= $a['id'] ?> for <?= e($a['full_name']) ?>? This action cannot be undone."
-                                  data-confirm-danger="1">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                                <button class="btn btn-sm btn-outline-danger" title="Delete appointment"
-                                        aria-label="Delete appointment #<?= $a['id'] ?>">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </button>
-                            </form>
                         </div>
                     </td>
                 </tr>

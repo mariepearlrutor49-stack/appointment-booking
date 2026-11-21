@@ -16,6 +16,31 @@ const STATUSES = ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No-show'];
 /** Statuses that do NOT occupy a time slot (slot can be booked again). */
 const FREE_SLOT_STATUSES = ['Cancelled', 'No-show'];
 
+/** Mandatory medical & financial record retention period in years before permanent DELETE is allowed. */
+const RETENTION_YEARS = 5;
+
+/**
+ * Evaluates whether a patient can be deleted from the Patients directory.
+ * - Blocked only when the patient has an UPCOMING Pending or Confirmed schedule.
+ * - Allowed whenever they have no upcoming schedule.
+ */
+function evaluate_patient_deletion(array $c): array
+{
+    $upcoming = (int) ($c['upcoming_bookings'] ?? 0);
+
+    if ($upcoming > 0) {
+        return [
+            'can_delete'   => false,
+            'block_reason' => 'Cannot delete: patient has ' . $upcoming . ' upcoming appointment(s). Cancel or move the schedule first.',
+        ];
+    }
+
+    return [
+        'can_delete'   => true,
+        'block_reason' => '',
+    ];
+}
+
 /** Business hours for the schedule (24-hour format). */
 const OPEN_TIME  = '08:00';
 const CLOSE_TIME = '17:00';   // last slot starts at 16:30

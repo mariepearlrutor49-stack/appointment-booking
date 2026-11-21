@@ -1,31 +1,96 @@
 <?php
 /**
- * customers.php - List of customers with search, edit, delete, and quick booking.
+ * customers.php - Walk-in Patients directory with search, edit, quick booking,
+ * and delete (allowed when the patient has no upcoming schedule; preserves
+ * past appointment history records).
  */
 require_once 'includes/auth.php';
 
-// ---- Delete (POST only, with confirmation modal in the browser) ----
+/**
+ * Fetches one active patient with total appointment count and upcoming schedule count.
+ */
+function fetch_patient_with_stats(PDO $pdo, int $id): ?array
+{
+    $stmt = $pdo->prepare(
+        "SELECT c.*,
+                COUNT(a.id) AS appointment_count,
+                SUM(CASE
+                    WHEN a.status IN ('Pending','Confirmed')
+                     AND (a.appointment_date > CURDATE()
+                          OR (a.appointment_date = CURDATE() AND a.appointment_time >= CURTIME()))
+                    THEN 1 ELSE 0
+                END) AS upcoming_bookings
+         FROM customers c
+         LEFT JOIN appointments a ON a.customer_id = c.id
+         WHERE c.id = ? AND c.is_active = 1
+         GROUP BY c.id"
+    );
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+// ---- Handle POST action: delete patient (preserving history) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     verify_csrf();
-    // Appointments of this customer are removed too (ON DELETE CASCADE)
-    $stmt = $pdo->prepare('DELETE FROM customers WHERE id = ?');
-    $stmt->execute([(int) $_POST['delete_id']]);
-    flash('Patient record deleted.', 'info');
+
+    $targetId = (int) $_POST['delete_id'];
+    $patient  = fetch_patient_with_stats($pdo, $targetId);
+
+    if (!$patient) {
+        flash('Patient record not found.', 'danger');
+        redirect('customers.php');
+    }
+
+    $policy = evaluate_patient_deletion($patient);
+
+    if (!$policy['can_delete']) {
+        flash($policy['block_reason'], 'danger');
+        redirect('customers.php');
+    }
+
+    if ((int) $patient['appointment_count'] > 0) {
+        // Patient has past appointment history: hide from active patients list (is_active = 0)
+        // so their records in Appointment History remain intact.
+        $stmt = $pdo->prepare('UPDATE customers SET is_active = 0 WHERE id = ?');
+        $stmt->execute([$targetId]);
+    } else {
+        // No appointment records at all: safe to remove row from database
+        $stmt = $pdo->prepare('DELETE FROM customers WHERE id = ?');
+        $stmt->execute([$targetId]);
+    }
+
+    flash('Patient "' . $patient['full_name'] . '" deleted.', 'info');
     redirect('customers.php');
 }
 
-// ---- Search ----
-$search = trim($_GET['q'] ?? '');
-$sql = 'SELECT c.*, COUNT(a.id) AS appointment_count
-        FROM customers c
-        LEFT JOIN appointments a ON a.customer_id = c.id';
+// ---- Search active patients ----
+$search = trim((string) ($_GET['q'] ?? ''));
+
+$where  = ['c.is_active = 1'];
 $params = [];
+
 if ($search !== '') {
-    $sql .= ' WHERE c.full_name LIKE ? OR c.contact_number LIKE ? OR c.email LIKE ?';
-    $like = '%' . $search . '%';
-    $params = [$like, $like, $like];
+    $where[]  = '(c.full_name LIKE ? OR c.contact_number LIKE ? OR c.email LIKE ?)';
+    $like     = '%' . $search . '%';
+    $params[] = $like;
+    $params[] = $like;
+    $params[] = $like;
 }
-$sql .= ' GROUP BY c.id ORDER BY c.full_name';
+
+$sql = "SELECT c.*,
+               COUNT(a.id) AS appointment_count,
+               SUM(CASE
+                   WHEN a.status IN ('Pending','Confirmed')
+                    AND (a.appointment_date > CURDATE()
+                         OR (a.appointment_date = CURDATE() AND a.appointment_time >= CURTIME()))
+                   THEN 1 ELSE 0
+               END) AS upcoming_bookings
+        FROM customers c
+        LEFT JOIN appointments a ON a.customer_id = c.id
+        WHERE " . implode(' AND ', $where) . "
+        GROUP BY c.id
+        ORDER BY c.full_name";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -56,21 +121,33 @@ require 'includes/header.php';
             </div>
             <div class="col-auto d-flex gap-2">
                 <button class="btn btn-outline-primary"><i class="bi bi-search" aria-hidden="true"></i> Search</button>
-                <?php if ($search !== ''): ?><a href="customers.php" class="btn btn-outline-secondary">Clear</a><?php endif; ?>
+                <?php if ($search !== ''): ?>
+                    <a href="customers.php" class="btn btn-outline-secondary">Clear</a>
+                <?php endif; ?>
             </div>
         </form>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead>
-                <tr><th>#</th><th>Patient Name</th><th>Contact</th><th>Email</th><th>Notes</th><th class="text-center">Visits</th><th class="text-end">Actions</th></tr>
+                <tr>
+                    <th>#</th>
+                    <th>Patient Name</th>
+                    <th>Contact</th>
+                    <th>Email</th>
+                    <th>Notes</th>
+                    <th class="text-center">Visits</th>
+                    <th class="text-end">Actions</th>
+                </tr>
             </thead>
             <tbody>
             <?php if (!$customers): ?>
                 <tr>
                     <td colspan="7" class="p-0">
                         <div class="empty-state py-5 text-center px-3">
-                            <div class="empty-state-icon mx-auto mb-2" aria-hidden="true"><i class="bi bi-person-plus"></i></div>
+                            <div class="empty-state-icon mx-auto mb-2" aria-hidden="true">
+                                <i class="bi bi-person-plus"></i>
+                            </div>
                             <h2 class="h6 fw-semibold mb-1">No patients found</h2>
                             <p class="text-muted small mb-3">Register a walk-in patient to book their first clinic appointment.</p>
                             <a href="customer_add.php" class="btn btn-sm btn-primary"><i class="bi bi-person-plus" aria-hidden="true"></i> Register Walk-in</a>
@@ -78,9 +155,11 @@ require 'includes/header.php';
                     </td>
                 </tr>
             <?php endif; ?>
-            <?php foreach ($customers as $c): ?>
+            <?php foreach ($customers as $i => $c):
+                $policy = evaluate_patient_deletion($c);
+            ?>
                 <tr>
-                    <td class="text-muted fw-semibold">#<?= $c['id'] ?></td>
+                    <td class="text-muted fw-semibold">#<?= $i + 1 ?></td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             <?= avatar_initials($c['full_name']) ?>
@@ -89,10 +168,12 @@ require 'includes/header.php';
                     </td>
                     <td><?= e($c['contact_number']) ?></td>
                     <td><?= $c['email'] ? e($c['email']) : '<span class="text-muted">—</span>' ?></td>
-                    <td class="small text-muted"><?= e(mb_strimwidth($c['notes'] ?? '', 0, 40, '...')) ?></td>
-                    <td class="text-center"><span class="badge bg-light text-dark border"><?= $c['appointment_count'] ?></span></td>
+                    <td class="small text-muted"><?= $c['notes'] ? e(mb_strimwidth($c['notes'], 0, 40, '...')) : '<span class="text-muted">—</span>' ?></td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border"><?= (int) $c['appointment_count'] ?></span>
+                    </td>
                     <td class="text-end text-nowrap">
-                        <div class="d-inline-flex gap-1">
+                        <div class="d-inline-flex gap-1 align-items-center">
                             <a href="book.php?customer_id=<?= $c['id'] ?>" class="btn btn-sm btn-primary"
                                title="Book appointment for <?= e($c['full_name']) ?>"
                                aria-label="Book appointment for <?= e($c['full_name']) ?>">
@@ -106,16 +187,27 @@ require 'includes/header.php';
                                title="Edit patient details" aria-label="Edit <?= e($c['full_name']) ?>">
                                 <i class="bi bi-pencil" aria-hidden="true"></i>
                             </a>
-                            <form method="post" class="d-inline"
-                                  data-confirm="Delete <?= e($c['full_name']) ?>? All of their appointments will also be deleted."
-                                  data-confirm-danger="1">
-                                <?= csrf_field() ?>
-                                <input type="hidden" name="delete_id" value="<?= $c['id'] ?>">
-                                <button class="btn btn-sm btn-outline-danger" title="Delete patient"
-                                        aria-label="Delete <?= e($c['full_name']) ?>">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </button>
-                            </form>
+
+                            <?php if ($policy['can_delete']): ?>
+                                <form method="post" class="d-inline"
+                                      data-confirm="Delete <?= e($c['full_name']) ?> from the patients list? Past history records will be kept."
+                                      data-confirm-danger="1">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="delete_id" value="<?= $c['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            title="Delete patient"
+                                            aria-label="Delete <?= e($c['full_name']) ?>">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            <?php else: ?>
+                                <span class="d-inline-block" tabindex="0" title="<?= e($policy['block_reason']) ?>">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+                                            aria-label="<?= e($policy['block_reason']) ?>">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </span>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

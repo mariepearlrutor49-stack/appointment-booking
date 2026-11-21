@@ -41,6 +41,7 @@ CREATE TABLE customers (
     contact_number VARCHAR(20)   NOT NULL,
     email          VARCHAR(100)  NULL,
     notes          TEXT          NULL,
+    is_active      TINYINT(1)    NOT NULL DEFAULT 1, -- 1 = active, 0 = archived (soft-deleted)
     created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_customer_name (full_name)

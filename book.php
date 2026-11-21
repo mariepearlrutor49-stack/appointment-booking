@@ -24,10 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 
     // ---- Validation (field-keyed so the error summary can link to each field) ----
-    $stmt = $pdo->prepare('SELECT COUNT(*) FROM customers WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM customers WHERE id = ? AND is_active = 1');
     $stmt->execute([$form['customer_id']]);
     if (!$stmt->fetchColumn()) {
-        $errors['customer_id'] = 'Please select a patient.';
+        $errors['customer_id'] = 'Please select an active patient.';
     }
 
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM services WHERE id = ? AND is_active = 1');
@@ -76,8 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ---- Data for the form ----
-$customers = $pdo->query('SELECT id, full_name, contact_number FROM customers ORDER BY full_name')->fetchAll();
+// ---- Data for the form (only active patients can book new appointments) ----
+$customers = $pdo->query('SELECT id, full_name, contact_number FROM customers WHERE is_active = 1 ORDER BY full_name')->fetchAll();
 $services  = $pdo->query('SELECT id, name, description, price FROM services WHERE is_active = 1 ORDER BY name')->fetchAll();
 
 $date         = $form['appointment_date'];

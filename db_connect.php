@@ -34,7 +34,7 @@ if ($isLocal) {
     define('DB_PORT', 3306);
     define('DB_NAME', 'if0_43460016_appointment_db');
     define('DB_USER', 'if0_43460016');
-    define('DB_PASS', 'YOUR_ACTUAL_PASSWORD_HERE');
+    define('DB_PASS', 'secret');
 }
 
 try {

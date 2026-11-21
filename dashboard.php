@@ -31,7 +31,7 @@ $stmt->execute([$today]);
 $upcoming = $stmt->fetchAll();
 
 // ---- Overall numbers ----
-$totalCustomers = (int) $pdo->query('SELECT COUNT(*) FROM customers')->fetchColumn();
+$totalCustomers = (int) $pdo->query('SELECT COUNT(*) FROM customers WHERE is_active = 1')->fetchColumn();
 
 // Slots still bookable today (not booked and not already past)
 $allSlots    = generate_time_slots();
