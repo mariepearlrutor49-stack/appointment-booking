@@ -1,10 +1,8 @@
 # AppointEase Clinic – Appointment Booking System
 
-A clean, beginner-friendly **Clinic Appointment Booking System** for administrators, built with **PHP (PDO), MySQL, HTML5, CSS3, and Bootstrap 5**. Designed with an Apple Health–inspired emerald green sidebar interface.
-
 ---
 
-## Core Features (Admin Only)
+## Core Features
 
 1. **Admin Login & Authentication**
    - Session-based login with `password_hash()` / `password_verify()` and CSRF protection.
@@ -68,67 +66,3 @@ A clean, beginner-friendly **Clinic Appointment Booking System** for administrat
 - **`appointments`** — `id` (PK), `customer_id` (FK → `customers`), `service_id` (FK → `services`), `appointment_date`, `appointment_time`, `status`, `notes`, `created_at`, `updated_at`
 - **`appointment_status_logs`** — `id` (PK), `appointment_id` (FK → `appointments`), `old_status`, `new_status`, `changed_by` (FK → `admins`), `changed_at`
 
----
-
-## Project Structure
-
-```text
-appointment-booking/
-├── db_connect.php            # Auto-detects Local (XAMPP) vs Live (InfinityFree) DB credentials
-├── database.sql              # Full SQL schema + sample clinic data
-├── README.md                 # Project documentation
-├── index.php                 # Redirects to dashboard or login
-├── login.php                 # Admin sign-in page
-├── logout.php                # Session logout handler
-├── change_password.php       # Admin password update form
-├── dashboard.php             # Clinic overview, summary platters & today's queue
-├── customers.php             # Walk-in patients directory, search & safe delete
-├── customer_add.php          # Register walk-in patient (Save / Save & Book)
-├── customer_edit.php         # Edit patient details
-├── schedules.php             # Daily 30-minute schedule availability grid
-├── book.php                  # Book an appointment with live summary receipt
-├── appointments.php          # Manage appointments with instant search & filters
-├── appointment_view.php      # Appointment details & status change timeline
-├── appointment_edit.php      # Edit appointment service, date, slot & notes
-├── appointment_status.php    # POST handler for status updates + audit log
-├── appointment_delete.php    # POST handler for appointment deletion
-├── includes/
-│   ├── auth.php              # Session guard for protected pages
-│   ├── functions.php         # Shared helpers (CSRF, escaping, slots, validation)
-│   ├── header.php            # Sidebar navigation, toolbar & page layout start
-│   ├── footer.php            # Confirmation modal & page layout end
-│   ├── customer_form.php     # Shared form fields for patient add/edit
-│   └── slot_picker.php       # Morning & Afternoon 30-minute radio slot grid
-└── assets/
-    ├── css/style.css         # Custom Apple Health–inspired green theme
-    └── js/app.js             # Confirmation modal, live booking summary & validation
-```
-
----
-
-## Running Locally (XAMPP)
-
-1. Place the `appointment-booking` folder inside your XAMPP `htdocs/` directory.
-2. Start **Apache** and **MySQL** in the XAMPP Control Panel.
-3. Open **phpMyAdmin** (`http://localhost/phpmyadmin`), create a database named `appointment_db`, and **Import** `database.sql`.
-4. Check `db_connect.php` under the `LOCAL (XAMPP)` block (configured for `127.0.0.1` and port `3307` / `3306`).
-5. Visit `http://localhost/appointment-booking/` in your browser.
-6. Default Admin Login:
-   - **Username:** `admin`
-   - **Password:** `password`
-
----
-
-## Deploying to InfinityFree
-
-1. Create a hosting account and MySQL database in the **InfinityFree Control Panel → MySQL Databases**.
-2. Open **phpMyAdmin** on InfinityFree, select your database, and **Import** `database.sql`.
-3. Update the `LIVE (InfinityFree)` credentials in `db_connect.php`:
-   ```php
-   define('DB_HOST', 'sqlXXX.infinityfree.com');
-   define('DB_PORT', 3306);
-   define('DB_NAME', 'if0_XXXXXXXX_appointment_db');
-   define('DB_USER', 'if0_XXXXXXXX');
-   define('DB_PASS', 'YOUR_VPANEL_PASSWORD');
-   ```
-4. Upload all project files into your InfinityFree `htdocs/` directory using File Manager or FTP.
